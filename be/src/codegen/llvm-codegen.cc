@@ -19,7 +19,7 @@
 #include <sstream>
 #include <boost/thread/mutex.hpp>
 
-#include <llvm/DataLayout.h>
+#include <llvm/IR/DataLayout.h>
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/InstructionSimplify.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
