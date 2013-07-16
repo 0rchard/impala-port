@@ -30,6 +30,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Analysis/Verifier.h>
+#include <llvm/Support/CodeGen.h>
 
 #include "exprs/expr.h"
 #include "impala-ir/impala-ir-functions.h"
@@ -486,6 +487,21 @@ class LlvmCodeGen {
   llvm::Value* false_value_;
 };
 
+/// \brief Creates JIT Execution engine with default paramters
+///
+/// Function for creating JIT or MCJIT ExecutionEngines with default parameters.
+/// It is possible to set optimization level via \p level argument. Set flag
+/// \p useMCJIT to true if function should create MCJIT ExecutionEngine
+///
+/// \p module LLVM Module to operate on. Should not be null
+/// \p error string containing error description. Should not be null
+/// \p level optimization level
+/// \p useMCJIT flag showing MCJIT instead of JIT usage
+/// \return NULL on error and pointer to ExecutionEngine
+llvm::ExecutionEngine* createJIT(llvm::Module* module,
+                                 std::string* error,
+                                 llvm::CodeGenOpt::Level level = llvm::CodeGenOpt::None,
+                                 bool useMCJIT = false);
 }
 
 #endif

@@ -23,7 +23,10 @@
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/InstructionSimplify.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/ExecutionEngine/SectionMemoryManager.h>
+#include <llvm/ExecutionEngine/JITMemoryManager.h>
 #include <llvm/PassManager.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/IRReader.h>
@@ -907,6 +910,26 @@ Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
     // Don't bother with optimizations without crc hash instruction
     return GetFunction(IRFunction::HASH_FVN);
   }
+}
+
+ExecutionEngine* createJIT(Module* module, string* error, CodeGenOpt::Level level, bool useMCJIT)
+{
+  assert(module && "Module couldn't be null.");
+  assert(error && "Error string is null.");
+  // use default llvm-techique for legacy JIT
+  if (!useMCJIT)
+    return ExecutionEngine::createJIT(module, error);
+
+  llvm::EngineBuilder builder(module);
+  builder.setErrorStr(error);
+  builder.setEngineKind(EngineKind::JIT);
+  builder.setUseMCJIT(useMCJIT);
+  builder.setJITMemoryManager(new llvm::SectionMemoryManager());
+  builder.setOptLevel(level);
+  // TODO: do not define it here
+  builder.setMArch("x86-64");
+
+  return builder.create();
 }
 
 }

@@ -16,6 +16,10 @@
 #include <gtest/gtest.h>
 #include <boost/thread/thread.hpp>
 
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
+#include <llvm/ExecutionEngine/JIT.h>
+
 #include "codegen/llvm-codegen.h"
 #include "runtime/raw-value.h"
 #include "util/cpu-info.h"
@@ -29,6 +33,41 @@ using namespace boost;
 using namespace llvm;
 
 namespace impala {
+
+TEST(ExecutionEngineTest, CreateExecutionEngineTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+
+  EXPECT_DEATH(impala::createJIT(0, 0), "Module couldn't be null.");
+  EXPECT_DEATH(impala::createJIT(&module, 0), "Error string is null.");
+
+  llvm::ExecutionEngine* NULLPTR = 0;
+  EXPECT_NE(impala::createJIT(&module, &errorString), NULLPTR);
+
+  for (int level=llvm::CodeGenOpt::None;
+       level<=llvm::CodeGenOpt::Aggressive;
+       level++) {
+    EXPECT_NE(impala::createJIT(&module, &errorString, (llvm::CodeGenOpt::Level)level), NULLPTR);
+    EXPECT_NE(impala::createJIT(&module, &errorString, (llvm::CodeGenOpt::Level)level, true), NULLPTR);
+  }
+}
+TEST(ExecutionEngineTest, CreateMCJITTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+  LLVMLinkInJIT();
+  LLVMLinkInMCJIT();
+
+  // test we get MCJIT and not legacy JIT
+  llvm::ExecutionEngine* ee1 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, false);
+  llvm::ExecutionEngine* ee2 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, true);
+
+  // using rtti, impala compiles with rtti support anyway
+  EXPECT_NE(typeid(*ee1), typeid(*ee2));
+  EXPECT_STRNE(typeid(*ee1).name(), typeid(*ee2).name());
+}
+
 
 class LlvmCodeGenTest : public testing:: Test {
  protected:
