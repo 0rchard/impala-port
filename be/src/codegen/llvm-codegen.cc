@@ -68,6 +68,8 @@ void LlvmCodeGen::InitializeLlvm(bool load_backend) {
   // This can *only* be called once per process and is used to setup
   // dynamically linking jitted code.
   llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::InitializeNativeTargetAsmPrinter();
   llvm_initialized = true;
 
   if (load_backend) {
@@ -210,7 +212,7 @@ Status LlvmCodeGen::Init() {
   opt_level = CodeGenOpt::None;
 #endif
   execution_engine_.reset(
-      ExecutionEngine::createJIT(module_, &error_string_, NULL, opt_level));
+      createJIT(module_, &error_string_, opt_level, true));
   if (execution_engine_ == NULL) {
     // execution_engine_ will take ownership of the module if it is created
     delete module_;
