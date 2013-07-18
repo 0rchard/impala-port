@@ -67,6 +67,36 @@ TEST(ExecutionEngineTest, CreateMCJITTest) {
   EXPECT_NE(typeid(*ee1), typeid(*ee2));
   EXPECT_STRNE(typeid(*ee1).name(), typeid(*ee2).name());
 }
+TEST(ExecutionEngineTest, UsingMCJITTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+  ObjectPool pool;
+  Status status;
+  scoped_ptr<LlvmCodeGen> codegen1;
+  scoped_ptr<LlvmCodeGen> codegen2;
+
+  LLVMLinkInJIT();
+  LLVMLinkInMCJIT();
+
+  llvm::ExecutionEngine* ee1 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, false);
+  llvm::ExecutionEngine* ee2 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, true);
+
+  LlvmCodeGen::SetMCJIT(false);
+  status = LlvmCodeGen::LoadImpalaIR(&pool, &codegen1);
+  ASSERT_TRUE(status.ok());
+  EXPECT_FALSE(codegen1->UsingMCJIT());
+
+  LlvmCodeGen::SetMCJIT(true);
+  status = LlvmCodeGen::LoadImpalaIR(&pool, &codegen2);
+  ASSERT_TRUE(status.ok());
+  EXPECT_TRUE(codegen2->UsingMCJIT());
+
+  // using rtti
+  EXPECT_NE(typeid(*codegen1->execution_engine()), typeid(*codegen2->execution_engine()));
+  EXPECT_EQ(typeid(*codegen1->execution_engine()), typeid(*ee1));
+  EXPECT_EQ(typeid(*codegen2->execution_engine()), typeid(*ee2));
+}
 
 
 class LlvmCodeGenTest : public testing:: Test {
@@ -485,6 +515,13 @@ int main(int argc, char **argv) {
   impala::MemInfo::Init();
   ::testing::InitGoogleTest(&argc, argv);
   impala::LlvmCodeGen::InitializeLlvm();
+  // testing codegen with mcjit
+  impala::LlvmCodeGen::SetMCJIT(true);
+  int ret = RUN_ALL_TESTS();
+  if (ret)
+    return ret;
+  // testing codegen with legacy jit
+  impala::LlvmCodeGen::SetMCJIT(false);
   return RUN_ALL_TESTS();
 }
 
