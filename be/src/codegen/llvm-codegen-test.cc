@@ -241,8 +241,6 @@ TEST_F(LlvmCodeGenTest, ReplaceFnCall) {
   EXPECT_EQ(scratch_size, 0);
   EXPECT_TRUE(original_loop != NULL);
   
-  // setting map page rx permissions
-  codegen->execution_engine()->finalizeObject();
   TestLoopFn original_loop_fn = reinterpret_cast<TestLoopFn>(original_loop); 
   original_loop_fn(5);
 
@@ -270,7 +268,6 @@ TEST_F(LlvmCodeGenTest, ReplaceFnCall) {
   void* new_loop = codegen->JitFunction(jitted_loop, &scratch_size);
   EXPECT_EQ(scratch_size, 0);
   EXPECT_TRUE(new_loop != NULL);
-  codegen->execution_engine()->finalizeObject();
 
   TestLoopFn new_loop_fn = reinterpret_cast<TestLoopFn>(new_loop);
   EXPECT_EQ(jitted_counter, 0);
@@ -290,7 +287,6 @@ TEST_F(LlvmCodeGenTest, ReplaceFnCall) {
   void* new_loop2 = codegen->JitFunction(jitted_loop2, &scratch_size);
   EXPECT_EQ(scratch_size, 0);
   EXPECT_TRUE(new_loop2 != NULL);
-  codegen->execution_engine()->finalizeObject();
 
   TestLoopFn new_loop_fn2 = reinterpret_cast<TestLoopFn>(new_loop2);
   new_loop_fn2(5);
@@ -369,7 +365,6 @@ TEST_F(LlvmCodeGenTest, StringValue) {
   // Jit compile function
   void* jitted_fn = codegen->JitFunction(string_test_fn);
   EXPECT_TRUE(jitted_fn != NULL);
-  codegen->execution_engine()->finalizeObject();
 
   // Call IR function
   typedef int (*TestStringInteropFn)(StringValue*);
@@ -417,7 +412,6 @@ TEST_F(LlvmCodeGenTest, MemcpyTest) {
 
   void* jitted_fn = codegen->JitFunction(fn);
   ASSERT_TRUE(jitted_fn != NULL);
-  codegen->execution_engine()->finalizeObject();
   
   typedef void (*TestMemcpyFn)(char*, char*, int64_t);
   TestMemcpyFn test_fn = reinterpret_cast<TestMemcpyFn>(jitted_fn);
@@ -483,7 +477,6 @@ TEST_F(LlvmCodeGenTest, HashTest) {
 
     void* jitted_fn = codegen->JitFunction(fn_fixed);
     ASSERT_TRUE(jitted_fn != NULL);
-    codegen->execution_engine()->finalizeObject();
 
     typedef uint32_t (*TestHashFn)();
     TestHashFn test_fn = reinterpret_cast<TestHashFn>(jitted_fn);
