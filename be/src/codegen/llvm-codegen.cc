@@ -564,6 +564,7 @@ void* LlvmCodeGen::JitFunction(Function* function, int* scratch_size) {
   if (jitted_function != NULL) {
     jitted_functions_[function] = true;
   }
+  execution_engine_->finalizeObject();
   return jitted_function;
 }
 
