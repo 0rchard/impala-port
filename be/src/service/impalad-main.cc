@@ -63,6 +63,8 @@ int main(int argc, char** argv) {
   InitDaemon(argc, argv);
 
   LlvmCodeGen::InitializeLlvm();
+  // TODO: replace hard-coded valeu with cmd-line option or else?
+  LlvmCodeGen::SetMCJIT(true); // use MCJIT
 
   // Enable Kerberos security if requested.
   if (!FLAGS_principal.empty()) {
