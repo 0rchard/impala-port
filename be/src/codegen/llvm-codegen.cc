@@ -58,6 +58,8 @@ namespace impala {
 static mutex llvm_initialization_lock;
 static bool llvm_initialized = false;
 
+bool LlvmCodeGen::mcjit_is_using_ = false;
+
 void LlvmCodeGen::InitializeLlvm(bool load_backend) {
   mutex::scoped_lock initialization_lock(llvm_initialization_lock);
   if (llvm_initialized) return;
@@ -200,6 +202,16 @@ Status LlvmCodeGen::LoadImpalaIR(ObjectPool* pool, scoped_ptr<LlvmCodeGen>* code
   return Status::OK;
 }
 
+bool LlvmCodeGen::UsingMCJIT()
+{
+  return mcjit_is_using_;
+}
+
+void LlvmCodeGen::SetMCJIT(bool usingMCJIT)
+{
+  mcjit_is_using_ = usingMCJIT;
+}
+
 Status LlvmCodeGen::Init() {
   if (module_ == NULL) {
     module_ = new Module(name_, context());
@@ -212,7 +224,7 @@ Status LlvmCodeGen::Init() {
   opt_level = CodeGenOpt::None;
 #endif
   execution_engine_.reset(
-      createJIT(module_, &error_string_, opt_level, true));
+      createJIT(module_, &error_string_, opt_level, mcjit_is_using_));
   if (execution_engine_ == NULL) {
     // execution_engine_ will take ownership of the module if it is created
     delete module_;
@@ -920,7 +932,7 @@ ExecutionEngine* createJIT(Module* module, string* error, CodeGenOpt::Level leve
   assert(error && "Error string is null.");
   // use default llvm-techique for legacy JIT
   if (!useMCJIT)
-    return ExecutionEngine::createJIT(module, error);
+    return ExecutionEngine::createJIT(module, error, 0, level);
 
   llvm::EngineBuilder builder(module);
   builder.setErrorStr(error);

@@ -119,6 +119,15 @@ class LlvmCodeGen {
   // codegen will contain the created object on success.  
   static Status LoadImpalaIR(ObjectPool*, boost::scoped_ptr<LlvmCodeGen>* codegen);
 
+  // Flag indicating MCJIT usage for codegen instead of legacy JIT
+  // true if MCJIT is used
+  static bool UsingMCJIT();
+
+  // Set type of JIT used for codegen
+  // true for MCJIT, false for legacy JIT
+  // It will affect _only_ subsequent LlvmCodeGen instances
+  static void SetMCJIT(bool usingMCJIT = true);
+
   // Removes all jit compiled dynamically linked functions from the process.
   ~LlvmCodeGen();
 
@@ -416,6 +425,11 @@ class LlvmCodeGen {
   // If true, the module has been compiled.  It is not valid to add additional
   // functions after this point.
   bool is_compiled_;
+
+  // flag defining type of JIT used for codegen
+  // true - MCJIT is used, false JIT is used
+  // should be set before LlvmCodeGen instantiation
+  static bool mcjit_is_using_;
 
   // Error string that llvm will write to
   std::string error_string_;
