@@ -55,7 +55,7 @@ SET(CXX_COVERAGE_FLAGS "-fprofile-arcs -ftest-coverage")
 #   3. Build again with CMAKE_BUILD_TYPE_PROFILE_BUILD
 #     -fprofile-use: Compiler will use the profile outputs for optimizations
 SET(CXX_FLAGS_DEBUG "-g -ggdb")
-SET(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -Wno-strict-aliasing")
+SET(CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wno-strict-aliasing")
 SET(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 SET(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 SET(CXX_FLAGS_ADDRESS_SANITIZER 

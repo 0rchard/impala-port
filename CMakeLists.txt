@@ -25,7 +25,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 find_package(PICLibs REQUIRED)
 
 # find boost headers and libs
-set(Boost_DEBUG TRUE)
+set(Boost_DEBUG FALSE)
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS thread regex-mt system-mt filesystem-mt)
 include_directories(${Boost_INCLUDE_DIRS})
