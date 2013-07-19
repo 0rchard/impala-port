@@ -23,7 +23,10 @@
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/InstructionSimplify.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/ExecutionEngine/SectionMemoryManager.h>
+#include <llvm/ExecutionEngine/JITMemoryManager.h>
 #include <llvm/PassManager.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/IRReader.h>
@@ -55,6 +58,8 @@ namespace impala {
 static mutex llvm_initialization_lock;
 static bool llvm_initialized = false;
 
+bool LlvmCodeGen::mcjit_is_using_ = false;
+
 void LlvmCodeGen::InitializeLlvm(bool load_backend) {
   mutex::scoped_lock initialization_lock(llvm_initialization_lock);
   if (llvm_initialized) return;
@@ -65,6 +70,8 @@ void LlvmCodeGen::InitializeLlvm(bool load_backend) {
   // This can *only* be called once per process and is used to setup
   // dynamically linking jitted code.
   llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::InitializeNativeTargetAsmPrinter();
   llvm_initialized = true;
 
   if (load_backend) {
@@ -195,6 +202,16 @@ Status LlvmCodeGen::LoadImpalaIR(ObjectPool* pool, scoped_ptr<LlvmCodeGen>* code
   return Status::OK;
 }
 
+bool LlvmCodeGen::UsingMCJIT()
+{
+  return mcjit_is_using_;
+}
+
+void LlvmCodeGen::SetMCJIT(bool usingMCJIT)
+{
+  mcjit_is_using_ = usingMCJIT;
+}
+
 Status LlvmCodeGen::Init() {
   if (module_ == NULL) {
     module_ = new Module(name_, context());
@@ -207,7 +224,7 @@ Status LlvmCodeGen::Init() {
   opt_level = CodeGenOpt::None;
 #endif
   execution_engine_.reset(
-      ExecutionEngine::createJIT(module_, &error_string_, NULL, opt_level));
+      createJIT(module_, &error_string_, opt_level, mcjit_is_using_));
   if (execution_engine_ == NULL) {
     // execution_engine_ will take ownership of the module if it is created
     delete module_;
@@ -547,6 +564,7 @@ void* LlvmCodeGen::JitFunction(Function* function, int* scratch_size) {
   if (jitted_function != NULL) {
     jitted_functions_[function] = true;
   }
+  execution_engine_->finalizeObject();
   return jitted_function;
 }
 
@@ -907,6 +925,26 @@ Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
     // Don't bother with optimizations without crc hash instruction
     return GetFunction(IRFunction::HASH_FVN);
   }
+}
+
+ExecutionEngine* createJIT(Module* module, string* error, CodeGenOpt::Level level, bool useMCJIT)
+{
+  assert(module && "Module couldn't be null.");
+  assert(error && "Error string is null.");
+  // use default llvm-techique for legacy JIT
+  if (!useMCJIT)
+    return ExecutionEngine::createJIT(module, error, 0, level);
+
+  llvm::EngineBuilder builder(module);
+  builder.setErrorStr(error);
+  builder.setEngineKind(EngineKind::JIT);
+  builder.setUseMCJIT(useMCJIT);
+  builder.setJITMemoryManager(new llvm::SectionMemoryManager());
+  builder.setOptLevel(level);
+  // TODO: do not define it here
+  builder.setMArch("x86-64");
+
+  return builder.create();
 }
 
 }

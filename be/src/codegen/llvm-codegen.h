@@ -30,6 +30,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Analysis/Verifier.h>
+#include <llvm/Support/CodeGen.h>
 
 #include "exprs/expr.h"
 #include "impala-ir/impala-ir-functions.h"
@@ -117,6 +118,15 @@ class LlvmCodeGen {
   // Loads and parses the precompiled impala IR module
   // codegen will contain the created object on success.  
   static Status LoadImpalaIR(ObjectPool*, boost::scoped_ptr<LlvmCodeGen>* codegen);
+
+  // Flag indicating MCJIT usage for codegen instead of legacy JIT
+  // true if MCJIT is used
+  static bool UsingMCJIT();
+
+  // Set type of JIT used for codegen
+  // true for MCJIT, false for legacy JIT
+  // It will affect _only_ subsequent LlvmCodeGen instances
+  static void SetMCJIT(bool usingMCJIT = true);
 
   // Removes all jit compiled dynamically linked functions from the process.
   ~LlvmCodeGen();
@@ -416,6 +426,11 @@ class LlvmCodeGen {
   // functions after this point.
   bool is_compiled_;
 
+  // flag defining type of JIT used for codegen
+  // true - MCJIT is used, false JIT is used
+  // should be set before LlvmCodeGen instantiation
+  static bool mcjit_is_using_;
+
   // Error string that llvm will write to
   std::string error_string_;
 
@@ -486,6 +501,21 @@ class LlvmCodeGen {
   llvm::Value* false_value_;
 };
 
+/// \brief Creates JIT Execution engine with default paramters
+///
+/// Function for creating JIT or MCJIT ExecutionEngines with default parameters.
+/// It is possible to set optimization level via \p level argument. Set flag
+/// \p useMCJIT to true if function should create MCJIT ExecutionEngine
+///
+/// \p module LLVM Module to operate on. Should not be null
+/// \p error string containing error description. Should not be null
+/// \p level optimization level
+/// \p useMCJIT flag showing MCJIT instead of JIT usage
+/// \return NULL on error and pointer to ExecutionEngine
+llvm::ExecutionEngine* createJIT(llvm::Module* module,
+                                 std::string* error,
+                                 llvm::CodeGenOpt::Level level = llvm::CodeGenOpt::None,
+                                 bool useMCJIT = false);
 }
 
 #endif

@@ -79,7 +79,7 @@ execute_process(
 # Get the link libs we need.  llvm has many and we don't want to link all of the libs
 # if we don't need them.   
 execute_process(
-  COMMAND ${LLVM_CONFIG_EXECUTABLE} --libnames core jit native ipo bitreader target
+  COMMAND ${LLVM_CONFIG_EXECUTABLE} --libnames core mcjit jit native ipo bitreader target
   OUTPUT_VARIABLE LLVM_MODULE_LIBS
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )

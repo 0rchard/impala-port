@@ -16,6 +16,10 @@
 #include <gtest/gtest.h>
 #include <boost/thread/thread.hpp>
 
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
+#include <llvm/ExecutionEngine/JIT.h>
+
 #include "codegen/llvm-codegen.h"
 #include "runtime/raw-value.h"
 #include "util/cpu-info.h"
@@ -29,6 +33,71 @@ using namespace boost;
 using namespace llvm;
 
 namespace impala {
+
+TEST(ExecutionEngineTest, CreateExecutionEngineTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+
+  EXPECT_DEATH(impala::createJIT(0, 0), "Module couldn't be null.");
+  EXPECT_DEATH(impala::createJIT(&module, 0), "Error string is null.");
+
+  llvm::ExecutionEngine* NULLPTR = 0;
+  EXPECT_NE(impala::createJIT(&module, &errorString), NULLPTR);
+
+  for (int level=llvm::CodeGenOpt::None;
+       level<=llvm::CodeGenOpt::Aggressive;
+       level++) {
+    EXPECT_NE(impala::createJIT(&module, &errorString, (llvm::CodeGenOpt::Level)level), NULLPTR);
+    EXPECT_NE(impala::createJIT(&module, &errorString, (llvm::CodeGenOpt::Level)level, true), NULLPTR);
+  }
+}
+TEST(ExecutionEngineTest, CreateMCJITTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+  LLVMLinkInJIT();
+  LLVMLinkInMCJIT();
+
+  // test we get MCJIT and not legacy JIT
+  llvm::ExecutionEngine* ee1 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, false);
+  llvm::ExecutionEngine* ee2 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, true);
+
+  // using rtti, impala compiles with rtti support anyway
+  EXPECT_NE(typeid(*ee1), typeid(*ee2));
+  EXPECT_STRNE(typeid(*ee1).name(), typeid(*ee2).name());
+}
+TEST(ExecutionEngineTest, UsingMCJITTest) {
+  llvm::LLVMContext context;
+  llvm::Module module("test", context);
+  std::string errorString;
+  ObjectPool pool;
+  Status status;
+  scoped_ptr<LlvmCodeGen> codegen1;
+  scoped_ptr<LlvmCodeGen> codegen2;
+
+  LLVMLinkInJIT();
+  LLVMLinkInMCJIT();
+
+  llvm::ExecutionEngine* ee1 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, false);
+  llvm::ExecutionEngine* ee2 = impala::createJIT(&module, &errorString, llvm::CodeGenOpt::None, true);
+
+  LlvmCodeGen::SetMCJIT(false);
+  status = LlvmCodeGen::LoadImpalaIR(&pool, &codegen1);
+  ASSERT_TRUE(status.ok());
+  EXPECT_FALSE(codegen1->UsingMCJIT());
+
+  LlvmCodeGen::SetMCJIT(true);
+  status = LlvmCodeGen::LoadImpalaIR(&pool, &codegen2);
+  ASSERT_TRUE(status.ok());
+  EXPECT_TRUE(codegen2->UsingMCJIT());
+
+  // using rtti
+  EXPECT_NE(typeid(*codegen1->execution_engine()), typeid(*codegen2->execution_engine()));
+  EXPECT_EQ(typeid(*codegen1->execution_engine()), typeid(*ee1));
+  EXPECT_EQ(typeid(*codegen2->execution_engine()), typeid(*ee2));
+}
+
 
 class LlvmCodeGenTest : public testing:: Test {
  protected:
@@ -439,6 +508,13 @@ int main(int argc, char **argv) {
   impala::MemInfo::Init();
   ::testing::InitGoogleTest(&argc, argv);
   impala::LlvmCodeGen::InitializeLlvm();
+  // testing codegen with mcjit
+  impala::LlvmCodeGen::SetMCJIT(true);
+  int ret = RUN_ALL_TESTS();
+  if (ret)
+    return ret;
+  // testing codegen with legacy jit
+  impala::LlvmCodeGen::SetMCJIT(false);
   return RUN_ALL_TESTS();
 }
 
